@@ -27,15 +27,11 @@
             background: black;
         }
 
-        #wallpaperGrid,
-        #wallpaperGrid td {
-            font-size: 3pt;
-            border-collapse: collapse;
-        }
-
         #wallpaperGrid {
+            image-rendering: pixelated;
+            border-radius: inherit;
             background: white;
-            table-layout: fixed;
+            width: min(90vw, 1024px);
         }
 
         #wallpaperGridContainer {
@@ -352,9 +348,9 @@
 
     function copyInputGridToWallpaperGrid() {
         var inGridElm = document.getElementById("inputPattern")
-        var inPattern = [...inGridElm.getElementsByTagName("td")].map(x => +x.classList.contains("selectedSquare")) // get input grid value as int array
-        var wrapWidth = inGridElm.rows[0].cells.length
-        var inPatternHeight = inGridElm.rows.length
+        var inPattern = [...inGridElm.rows].map(x => [...x.cells].map(y => +y.classList.contains("selectedSquare"))) // get input grid value as array of arrays of ints
+        var patternWidth = inPattern[0].length
+        var patternHeight = inPattern.length
         var width = gridCtxObj.grid[0].length
         var height = gridCtxObj.grid.length
 
@@ -374,20 +370,33 @@
         //     imgData.data[i+3] = 255  // alpha
         // }
 
-        for (var row=0; row<height; row++){
-            var mappedRowIdx = row % inPatternHeight
-            var tempRowData = inPattern.slice(mappedRowIdx, mappedRowIdx + wrapWidth)
-            for (var col=0; col<width; col+=4){
-                var colIdx = col/4
-                var mappedColIdx = colIdx % wrapWidth
-                var tempCellData = tempRowData[mappedColIdx]
-                tempCellData = tempCellData ? 0 : 255
-                imgData.data[(row * width) + col] = tempCellData
-                imgData.data[(row * width) + col+1] = tempCellData 
-                imgData.data[(row * width) + col+2] = tempCellData 
-                imgData.data[(row * width) + col+3] = 255  // alpha
+        // for (var row = 0; row < height; row++) {
+        //     var mappedRowIdx = row % patternHeight
+        //     for (var col = 0; col < width; col += 4) {
+        //         var offset = (row * patternWidth * 4) + col
+        //         var mappedColIdx = (col / 4) % patternWidth
+        //         var tempVal = inPattern[mappedRowIdx][mappedColIdx]
+        //         tempVal = tempVal ? 0 : 255
+        //         imgData.data[offset] = tempVal
+        //         imgData.data[offset + 1] = tempVal
+        //         imgData.data[offset + 2] = tempVal
+        //         imgData.data[offset + 3] = 255  // alpha
+        //     }
+        // }
+
+        var imgDataArray = []
+
+        for (var row = 0; row < height; row++) {
+            var mappedRowIdx = row % patternHeight
+            for (var col = 0; col < width; col++) {
+                var mappedColIdx = col % patternWidth
+                var tempVal = inPattern[mappedRowIdx][mappedColIdx]
+                tempVal = tempVal ? 0 : 255
+                imgDataArray.push([tempVal, tempVal, tempVal, 255])
             }
         }
+
+        imgData.data.set(imgDataArray.flat())
 
         // push pixels to canvas
         gridCtxObj.ctx.putImageData(imgData, 0, 0);
@@ -419,49 +428,13 @@
 
         canvasElm.setAttribute("width", width)
         canvasElm.setAttribute("height", height)
+        canvasElm.id = "wallpaperGrid"
 
         document.getElementById("wallpaperGridContainer").appendChild(canvasElm)
 
         return { "grid": grid, "ctx": ctx }
     }
 
-
-    // function generateFullGridFromInputGrid(in_grid, out_grid) {
-    //     var in_gridWidth = in_grid.rows[0].cells.length
-    //     var in_gridHeight = in_grid.rows.length
-    //     var out_gridWidth = out_grid.rows[0].cells.length
-    //     var out_gridHeight = out_grid.rows.length
-    //     var outArray = []
-    //     for (var h = 0; h < out_gridHeight; h++) {
-    //         for (var w = 0; w < out_gridWidth; w++) {
-    //             outArray.push(in_grid.rows[h % in_gridHeight].cells[w % in_gridWidth].classList.contains("selectedSquare"))
-    //         }
-    //     }
-    //     return outArray
-    // }
-
-    // function getCurrentFullGridStatus(currentGrid) {
-    //     var currentGridArray = []
-    //     for (var i = 0; i < currentGrid.getElementsByTagName("td").length; i++) {
-    //         currentGridArray.push(currentGrid.getElementsByTagName("td")[i].classList.contains("selectedSquare"))
-    //     }
-    //     return currentGridArray
-    // }
-
-    // function compareNewGridToCurrentGrid(in_grid, out_grid) {
-    //     var currentGrid = getCurrentFullGridStatus(out_grid)
-    //     var newGrid = generateFullGridFromInputGrid(in_grid, out_grid)
-    //     gridWorker.postMessage([currentGrid, newGrid])
-    //     // var cellsToToggle = []
-    //     // for (var i=0; i<currentGrid.length; i++){
-    //     //     cellsToToggle.push(currentGrid[i] != newGrid[i])
-    //     // }
-    //     //return cellsToToggle
-    // }
-
-    // function toggleWallpaperGridCellsToUpdate() {
-    //     // compareNewGridToCurrentGrid(document.getElementById("inputPattern"), document.getElementById("wallpaperGrid"))
-    // }
 
     function read_url_params_and_apply() {
         var url_string = window.location.href
@@ -847,17 +820,6 @@
         makeModalsDraggable();
     }
 
-    // setup worker for grid calculations
-    // is this even faster? Who cares, it's neat
-    var gridWorker = new Worker("res/grid_worker.js")
-    gridWorker.onmessage = function (e) {
-        var cellsToToggle = e.data;
-        for (var i = 0; i < cellsToToggle.length; i++) {
-            if (cellsToToggle[i]) {
-                document.getElementById("wallpaperGrid").getElementsByTagName("td")[i].classList.toggle("selectedSquare")
-            }
-        }
-    }
 
     init();
 </script>
